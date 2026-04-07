@@ -1,0 +1,22 @@
+# Data files
+data/raw/*
+data/processed/*
+*.csv
+*.parquet
+# Config files(secrets)
+.env
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+# ML artifacts
+mlruns/
+*.pt
+*.pth
+*.pkl
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
