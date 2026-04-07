@@ -3,6 +3,8 @@ data/raw/*
 data/processed/*
 *.csv
 *.parquet
+!data/raw/.gitkeep
+!data/processed/.gitkeep
 # Config files(secrets)
 .env
 __pycache__/
