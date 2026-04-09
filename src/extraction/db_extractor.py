@@ -14,14 +14,15 @@ class DatabaseExtractor():
     """
     def __init__(self):
         self.engine = create_engine(
-            f"postgresql://{os.getenv("POSTGRES_USER")}:{os.getenv("POSTGRES_PASSWORD")}"
-            f"@{os.getenv("POST_HOST")}:{os.getenv("POSTGRES_PORT")/{os.getenv("POSTGRES_DB")}}"
+            f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+            f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
             ,
             pool_size=5,
             max_overflow=10,
             pool_timeout=30,
             pool_recycle=1800
         )
+
 
     def extract_patients(self, chunksize: int = 10000) -> pd.DataFrame:
         """
@@ -53,7 +54,7 @@ class DatabaseExtractor():
         logger.info(f"Total patient records extracted: {len(df)}")
         return df
     
-    def extract_admission(self, chunksize: int = 10000) -> pd.DataFrame:
+    def extract_admissions(self, chunksize: int = 10000) -> pd.DataFrame:
         """
         Extracts admission info from database in chunks of 10000
         """
@@ -78,9 +79,9 @@ class DatabaseExtractor():
         with self.engine.connect() as conn:
             for chunk in pd.read_sql(query, conn, chunksize=chunksize):
                 chunks.append(chunk)
-                logger.info(f"Extracted {len(chunk)} patient records")
+                logger.info(f"Extracted {len(chunk)} admission records")
 
         
         df = pd.concat(chunks, ignore_index = True)
-        logger.info(f"Total patient records extracted: {len(df)}")
+        logger.info(f"Total admisssion records extracted: {len(df)}")
         return df

@@ -204,6 +204,12 @@ def generate_lab_results_csv(patients_df, output_path="data/lab_results.csv"):
 
 def load_to_database(engine, patients_df, admissions_df):
     """Load dataframes into PostgreSQL."""
+    # Drop tables in reverse dependency order first
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS admissions CASCADE;"))
+        conn.execute(text("DROP TABLE IF EXISTS patients CASCADE;"))
+        conn.commit()
+
     patients_df.to_sql("patients", engine, if_exists="replace", index=False)
     print(f"Loaded {len(patients_df)} patients to database.")
 
