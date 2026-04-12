@@ -66,7 +66,7 @@ with DAG(
         external_task_id = "transform_and_engineer",
         timeout = 3600,
         poke_interval = 60,
-        mode = "poke"
+        mode = "reschedule"
     )
 
     train = PythonOperator(
