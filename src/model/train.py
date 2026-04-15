@@ -5,6 +5,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
+import mlflow
+import mlflow.pytorch
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,82 +72,130 @@ def train_model():
     pos_weight = torch.tensor([(1-y_train.mean())/y_train.mean()])
     logger.info(f"Class weight for positive(readmitted): {pos_weight.item():.2f}")
 
-    # Instantiate class
-    model = ReadmissionPredictor(
-        input_dim = X_train.shape[1],
-        hidden_dims = [64,32],
-        dropout_rate = 0.2
-    )
+    mlflow.set_experiment("readmission_prediction")
 
-    # Train loss
-    criterion = nn.BCEWithLogitsLoss(pos_weight = pos_weight)
-    optimizer = torch.optim.Adam(model.parameters(), lr = 0.0005, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=10, factor=0.5
-    )
+    with mlflow.start_run(run_name="pytorch_baseline"):
+        # Instantiate class
+        model = ReadmissionPredictor(
+            input_dim = X_train.shape[1],
+            hidden_dims = [64,32],
+            dropout_rate = 0.2
+        )
 
-    best_val_loss = float('inf')
-    patience_counter = 0
-    patience = 20
-    best_model_state = None
+        # Train loss
+        criterion = nn.BCEWithLogitsLoss(pos_weight = pos_weight)
+        optimizer = torch.optim.Adam(model.parameters(), lr = 0.0005, weight_decay=1e-4)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', patience=10, factor=0.5
+        )
 
-    for epoch in range(200):
-        model.train()
-        train_loss = 0
-        for X_batch, y_batch in train_loader:
-            optimizer.zero_grad()
-            predictions = model(X_batch)
-            loss = criterion(predictions, y_batch)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            train_loss += loss.item()
+        params = {
+            "model_type" : "ReadmissionPredictor",
+            "batch_size" : 256,
+            "max_epochs" : 200,
+            "hidden_dim" : "[64-32]",
+            "dropout_rate" : 0.2,
+            "learning_rate" : 0.005,
+            "weight_decay" : 1e-4,
+            "patience" : 20,
+            "factor" : 0.5,
+            "num_features": X_train.shape[1],
+            "train_sample": len(X_train)
+        }
 
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for X_batch, y_batch in val_loader:
+        mlflow.log_params(params)
+
+        best_val_loss = float('inf')
+        patience_counter = 0
+        patience = 20
+        best_model_state = None
+
+        for epoch in range(200):
+            model.train()
+            train_loss = 0
+            for X_batch, y_batch in train_loader:
+                optimizer.zero_grad()
                 predictions = model(X_batch)
                 loss = criterion(predictions, y_batch)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                train_loss += loss.item()
 
-                val_loss += loss.item()
+            model.eval()
+            val_loss = 0
+            with torch.no_grad():
+                for X_batch, y_batch in val_loader:
+                    predictions = model(X_batch)
+                    loss = criterion(predictions, y_batch)
 
-        train_loss /= len(train_loader)
-        val_loss /= len(val_loader)
-        scheduler.step(val_loss)
+                    val_loss += loss.item()
 
-        # Log every 10 epochs
-        if epoch % 10 == 0:
-            logger.info(f"Epoch = {epoch}, train_loss: {train_loss:.4f}, Val_loss: {val_loss}")
+            train_loss /= len(train_loader)
+            val_loss /= len(val_loader)
+            scheduler.step(val_loss)
 
-        # Early loss
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            patience_counter = 0
-            best_model_state = model.state_dict().copy()
-        else:
-            patience_counter += 1
-            if patience_counter >= patience:
-                logger.info(f"Early stopping at epoch {epoch}")
-                break
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
 
-    # Load the best model state
-    model.load_state_dict(best_model_state)
+            # Log every 10 epochs
+            if epoch % 10 == 0:
+                logger.info(f"Epoch = {epoch}, train_loss: {train_loss:.4f}, Val_loss: {val_loss}")
 
-    # Save model and scaler
-    torch.save(model.state_dict(), "data/processed/model.pt")
-    torch.save(scaler, "data/processed/scaler.pt")
+            # Early stopping
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                best_model_state = model.state_dict().copy()
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    logger.info(f"Early stopping at epoch {epoch}")
+                    break
+        
+        from src.model.evaluate import evaluate_model
+        # Load the best model state
+        model.load_state_dict(best_model_state)
 
-    logger.info("Training complete. Model saved.")
+        mlflow.pytorch.log_model(model, "readmission_predictor_model")
 
-    return model, scaler, (X_test, y_test), feature_cols
+        metrics = evaluate_model(model, X_test, y_test)
+
+        mlflow.log_metric("stopped_at_epoch", epoch)
+
+        all_metrics = {
+            "test_accuracy": metrics["accuracy"],
+            "test_precision": metrics["precision"],
+            "test_f1_score" : metrics["f1_score"],
+            "test_auc_roc": metrics["auc_roc"],
+            "test_recall": metrics["recall"],
+        }
+
+        mlflow.log_metrics(all_metrics)
+
+        # Save model and scaler
+        torch.save(scaler, "data/processed/scaler.pt")
+        mlflow.log_artifact("data/processed/scaler.pt")
+
+        logger.info("Training complete. Model saved.")
+
+        
+
+        # Log feature list
+        import json
+        with open("data/processed/feature_cols.json", "w") as f:
+            json.dump(feature_cols, f)
+        mlflow.log_artifact("data/processed/feature_cols.json")
+
+        logger.info(f"MLflow run complete. F1: {metrics['f1_score']:.4f}")
+
+        return model, scaler, (X_test, y_test), feature_cols
 
 
 
+
+            
+                
 
 
         
-            
-
-
-    
