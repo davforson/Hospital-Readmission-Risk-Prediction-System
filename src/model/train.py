@@ -157,7 +157,7 @@ def train_model():
         # Load the best model state
         model.load_state_dict(best_model_state)
 
-        mlflow.pytorch.log_model(model, "readmission_predictor_model")
+        mlflow.pytorch.log_model(model, "readmission_model")
 
         metrics = evaluate_model(model, X_test, y_test)
 
