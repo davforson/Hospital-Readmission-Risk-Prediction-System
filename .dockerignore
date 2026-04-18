@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+mlruns/
+*.egg-info/
+.env
+data/raw/
+tests/
+*.md
+.gitignore
+.dockerignore
