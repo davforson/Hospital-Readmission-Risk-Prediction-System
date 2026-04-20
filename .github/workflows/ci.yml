@@ -1,0 +1,72 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Service container
+    services:
+      postgres: 
+        image: postgres:16
+        env:
+          POSTGRES_DB: hospital_readmissions
+          POSTGRES_USER: ml_user
+          POSTGRES_PASSWORD: ml_password_123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ml_user -d hospital_readmissions"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Environment variables
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: hospital_readmissions
+      POSTGRES_USER: ml_user
+      POSTGRES_PASSWORD: ml_password_123
+
+    steps:
+      # Step 1: Get the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+    
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-docker.txt
+          pip install pytest black flake8
+
+      # Step 4: Check code formatting
+      - name: Check formatting with black
+        run: black --check src/ api/ tests/ --line-length 100
+
+      # Step 5: Check code quality
+      - name: Lint with flake8
+        run: flake8 src/ api/ tests/ --max-line-length 100 --ignore=E501,W503
+
+      # Step 6: 
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      # Step 7:
+      - name: Verify model imports
+        run: |
+          python -c "from src.model.architecture import ReadmissionPredictor; print('Model architecture OK')"
+          python -c "from api.schemas import PatientFeatures, PredictionResponse; print('API schemas OK')"
+
+
