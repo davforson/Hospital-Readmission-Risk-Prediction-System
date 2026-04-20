@@ -26,6 +26,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Convert repo name to lowercase
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -33,5 +37,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: | 
-            ghcr.io/${{ github.repository }}/readmission-api:latest
-            ghcr.io/${{ github.repository }}/readmission-api:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}/readmission-api:latest
+            ghcr.io/${{ steps.repo.outputs.name }}/readmission-api:${{ github.sha }}
