@@ -2,8 +2,6 @@ from fastapi import FastAPI, HTTPException
 from api.schemas import PatientFeatures, PredictionResponse, HealthResponse
 import torch
 import numpy as np
-import pandas as pd
-import json
 import logging
 
 logger = logging.getLogger(__name__)

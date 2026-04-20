@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -7,7 +6,6 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
     confusion_matrix,
-    classification_report,
 )
 import logging
 
@@ -58,7 +56,7 @@ def evaluate_model(model, X_test, y_test, threshold: float = 0.5):
     logger.info(f"Recall:    {metrics['recall']:.4f}")
     logger.info(f"F1 Score:  {metrics['f1_score']:.4f}")
     logger.info(f"AUC-ROC:   {metrics['auc_roc']:.4f}")
-    logger.info(f"Confusion Matrix:")
+    logger.info("Confusion Matrix:")
     logger.info(f"  TN={metrics['true_negatives']}  FP={metrics['false_positives']}")
     logger.info(f"  FN={metrics['false_negatives']}  TP={metrics['true_positives']}")
     logger.info("=" * 50)

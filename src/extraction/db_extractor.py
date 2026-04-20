@@ -28,7 +28,7 @@ class DatabaseExtractor:
         Extract patient data from database in chunks of 10,000
         """
         query = text("""
-            SELECT 
+            SELECT
                 patient_id,
                 first_name,
                 last_name,
@@ -38,7 +38,7 @@ class DatabaseExtractor:
                 zip_code,
                 insurance_type,
                 primary_care_physician
-              FROM patients 
+              FROM patients
         """)
 
         chunks = []
@@ -56,18 +56,18 @@ class DatabaseExtractor:
         Extracts admission info from database in chunks of 10000
         """
         query = text("""
-                     SELECT 
-                       admission_id, 
-                       patient_id, 
-                       admission_date, 
-                       discharge_date, 
-                       admission_type, 
-                       discharge_disposition, 
-                       primary_diagnosis_code, 
-                       primary_diagnosis_desc, 
-                       number_of_procedures, 
-                       number_of_diagnoses, 
-                       length_of_stay, 
+                     SELECT
+                       admission_id,
+                       patient_id,
+                       admission_date,
+                       discharge_date,
+                       admission_type,
+                       discharge_disposition,
+                       primary_diagnosis_code,
+                       primary_diagnosis_desc,
+                       number_of_procedures,
+                       number_of_diagnoses,
+                       length_of_stay,
                        readmitted_30d
                     FROM admissions
                      """)

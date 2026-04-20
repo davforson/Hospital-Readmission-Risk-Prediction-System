@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
@@ -96,7 +95,7 @@ def clean_lab_results(df: pd.DataFrame) -> pd.DataFrame:
 
     """
     df = df.copy()
-    before = len(df)
+    len(df)
 
     null_patients = df["patient_id"].isna().sum()
     if null_patients > 0:
