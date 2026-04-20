@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+
 class PatientFeatures(BaseModel):
     """Input schema: features needed for a readmission prediction.
 
@@ -12,16 +13,18 @@ class PatientFeatures(BaseModel):
     Pydantic validates ALL of these automatically.
     Send a negative value for length_of_stay? → instant 422 error.
     """
+
     # Clinical features
     length_of_stay: int = Field(..., ge=1, description="Days in the hospital(minimum 1)")
-    number_of_procedures: int= Field(..., ge=0, descripton="Procedures performed")
-    number_of_diagnoses: int= Field(..., ge=1, description="Diagnosis count")
-    primary_diagnosis_code: str= Field(..., description="ICD-10 code, e.g. I50.9")
-
+    number_of_procedures: int = Field(..., ge=0, descripton="Procedures performed")
+    number_of_diagnoses: int = Field(..., ge=1, description="Diagnosis count")
+    primary_diagnosis_code: str = Field(..., description="ICD-10 code, e.g. I50.9")
 
     # Utilization Features
     num_prior_admissions_6mo: int = Field(..., ge=0, description="Admissions in the last 6 months")
-    num_prior_admissions_12mo: int = Field(..., ge=0, description="Admissions in the last 12 months")
+    num_prior_admissions_12mo: int = Field(
+        ..., ge=0, description="Admissions in the last 12 months"
+    )
     days_since_last_admission: int = Field(..., ge=0, description="Days since last discharge")
     total_previous_los: int = Field(..., ge=0, description="Total prior length of stay")
 
@@ -43,14 +46,17 @@ class PatientFeatures(BaseModel):
 
     # Admission/discharge details
     admission_type: str = Field(..., description="Emergency, Urgent, Elective, or Trauma")
-    discharge_disposition: str = Field(..., description="Home, SNF, Rehab, Home Health, AMA, or Expired")
+    discharge_disposition: str = Field(
+        ..., description="Home, SNF, Rehab, Home Health, AMA, or Expired"
+    )
 
 
 class PredictionResponse(BaseModel):
-    """Output Schema: what the API returns
+    """Output Schema: what the API returns"""
 
-    """
-    readmission_probability: float = Field(..., description="Probability of 30-day readmission (0 to 1)")
+    readmission_probability: float = Field(
+        ..., description="Probability of 30-day readmission (0 to 1)"
+    )
     risk_level: str = Field(..., description="low, medium, or high")
     model_version: str = Field(..., description="Which model version made this prediction")
 
@@ -61,4 +67,3 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_version: str
-

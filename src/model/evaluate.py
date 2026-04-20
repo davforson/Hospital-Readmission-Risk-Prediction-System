@@ -1,25 +1,30 @@
 import torch
 import numpy as np
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score,
-    f1_score, roc_auc_score, confusion_matrix,
-    classification_report
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+    classification_report,
 )
 import logging
 
 logger = logging.getLogger(__name__)
 
+
 def evaluate_model(model, X_test, y_test, threshold: float = 0.5):
     """Evaluate model on test set with multiple metrics.
 
-        Args:
-            model: trained PyTorch model
-            X_test: scaled test features (numpy array)
-            y_test: test labels (numpy array)
-            threshold: probability threshold for classification (default 0.5)
+    Args:
+        model: trained PyTorch model
+        X_test: scaled test features (numpy array)
+        y_test: test labels (numpy array)
+        threshold: probability threshold for classification (default 0.5)
 
-        Returns:
-            dict of metrics
+    Returns:
+        dict of metrics
     """
     model.eval()
 
@@ -34,7 +39,7 @@ def evaluate_model(model, X_test, y_test, threshold: float = 0.5):
         "precision": precision_score(y_test, predictions),
         "recall": recall_score(y_test, predictions),
         "f1_score": f1_score(y_test, predictions),
-        "auc_roc": roc_auc_score(y_test, probabilities)
+        "auc_roc": roc_auc_score(y_test, probabilities),
     }
 
     # Confusion matrix
@@ -43,7 +48,7 @@ def evaluate_model(model, X_test, y_test, threshold: float = 0.5):
     metrics["false_positives"] = int(cm[0][1])
     metrics["false_negatives"] = int(cm[1][0])
     metrics["true_positives"] = int(cm[1][1])
-    
+
     # Log results
     logger.info("=" * 50)
     logger.info("MODEL EVALUATION RESULTS")
@@ -59,4 +64,3 @@ def evaluate_model(model, X_test, y_test, threshold: float = 0.5):
     logger.info("=" * 50)
 
     return metrics
-

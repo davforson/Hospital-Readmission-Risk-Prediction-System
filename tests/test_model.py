@@ -5,7 +5,7 @@ from src.model.architecture import ReadmissionPredictor
 def test_model_creates_with_correct_output_shape():
     """Model should output one value per sample."""
     model = ReadmissionPredictor(input_dim=40, hidden_dims=[64, 32], dropout_rate=0.2)
-    X = torch.randn(10, 40)   # batch of 10 samples, 40 features
+    X = torch.randn(10, 40)  # batch of 10 samples, 40 features
     output = model(X)
     assert output.shape == (10,), f"Expected (10,), got {output.shape}"
 

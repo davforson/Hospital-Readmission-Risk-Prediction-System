@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Readmission Prediction API",
     description="Predict 30-day hospital readmission risk",
-    version = "1.0.0"
+    version="1.0.0",
 )
 
 # -- Global Mode State -- Loaded once at startup
@@ -30,15 +30,18 @@ async def load_model():
 
     # Load the features from the json file
     import json
+
     with open("data/processed/feature_cols.json", "r") as f:
         feature_cols = json.load(f)
 
     # Load scaler
-    scaler = torch.load("data/processed/scaler.pt", weights_only= False)
+    scaler = torch.load("data/processed/scaler.pt", weights_only=False)
 
     # Load model:
-    model = ReadmissionPredictor(input_dim = len(feature_cols), hidden_dims=[64, 32], dropout_rate=0.2)
-    model.load_state_dict(torch.load("data/processed/model.pt", weights_only = True))
+    model = ReadmissionPredictor(
+        input_dim=len(feature_cols), hidden_dims=[64, 32], dropout_rate=0.2
+    )
+    model.load_state_dict(torch.load("data/processed/model.pt", weights_only=True))
     model.eval()
 
     model_version = "v2-staging"
@@ -56,7 +59,7 @@ def prepare_features(patient: PatientFeatures) -> np.ndarray:
 
     data = {
         "length_of_stay": patient.length_of_stay,
-        "number_of_procedures" : patient.number_of_procedures,
+        "number_of_procedures": patient.number_of_procedures,
         "number_of_diagnoses": patient.number_of_diagnoses,
         "num_prior_admissions_6mo": patient.num_prior_admissions_6mo,
         "num_prior_admissions_12mo": patient.num_prior_admissions_12mo,
@@ -83,7 +86,6 @@ def prepare_features(patient: PatientFeatures) -> np.ndarray:
     for ins_type in ["Medicare", "Private", "Self-Pay", "VA"]:
         data[f"insurance_{ins_type}"] = 1 if patient.insurance_type == ins_type else 0
 
-
     # Admission type (drop_first=True means we drop "Elective" as baseline)
     for adm_type in ["Emergency", "Trauma", "Urgent"]:
         data[f"admission_{adm_type}"] = 1 if patient.admission_type == adm_type else 0
@@ -94,11 +96,11 @@ def prepare_features(patient: PatientFeatures) -> np.ndarray:
 
     for col in feature_cols:
         if col.startswith("diag") and col not in data:
-            code = col.replace("diag","")
+            code = col.replace("diag", "")
             data[col] = 1 if patient.primary_diagnosis_code == code else 0
 
     # Build the array in the exact column order the feature expects
-    feature_array = np.array([[data.get(col,0) for col in data]], dtype=np.float32)
+    feature_array = np.array([[data.get(col, 0) for col in data]], dtype=np.float32)
 
     # Scale using the training scaler
     feature_array = scaler.transform(feature_array)
@@ -106,13 +108,13 @@ def prepare_features(patient: PatientFeatures) -> np.ndarray:
     return feature_array
 
 
-@app.post("/predict", response_model = PredictionResponse)
+@app.post("/predict", response_model=PredictionResponse)
 async def predict(patient: PatientFeatures):
     """Get readmission risk prediction for a patient."""
 
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
-    
+
     try:
         feature_array = prepare_features(patient)
 
@@ -130,28 +132,19 @@ async def predict(patient: PatientFeatures):
             risk_level = "low"
 
         return PredictionResponse(
-            readmission_probability=round(probability,4),
-            risk_level = risk_level,
-            model_version = model_version
+            readmission_probability=round(probability, 4),
+            risk_level=risk_level,
+            model_version=model_version,
         )
 
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Check if the API is running and model is loaded."""
     return HealthResponse(
-        status="healthy",
-        model_loaded= model is not None,
-        model_version=model_version
+        status="healthy", model_loaded=model is not None, model_version=model_version
     )
-
-
-    
-
-
-
-
