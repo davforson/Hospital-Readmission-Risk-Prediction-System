@@ -16,20 +16,56 @@ default_args = {
 
 def train_model(**context):
     """Train the readmission prediction model"""
-    # We'll fill this in section 6
+    from src.model.train import train_model as run_training 
 
-    import pandas as pd
-    features = pd.read_parquet("data/processed/features.parquet")
-    context["ti"].xcom_push(key="training_rows", value=len(features))
-    print(f"Training on {len(features)} rows")
+    model, scaler, (X_test, y_test), feature_cols = run_training()
+
+    context["ti"].xcom_push(key="training_complete", value=True)
+    print("Model training complete")
+    
 
 def evaluate_model(**context):
     """Evaluate model performance"""
-    # Placeholder - fill this in section 6
+    import torch 
+    from src.model.architecture import ReadmissionPredictor
+    from src.model.evaluate import evaluate_model as run_evaluation
+    import json
 
-    f1_score = 0.75
-    context["ti"].xcom_push(key="f1_score", value=f1_score)
-    print(f"Model f1 score: {f1_score}")
+    #Load the trained model
+    with open("data/processed/features.json", "r") as f:
+        feature_cols = json.load(f)
+
+    model = ReadmissionPredictor(input_dim=len(feature_cols), hidden_dims=[64,32], dropout_rate=0.2)
+    model.load_state_dict(torch.load("data/processed/model.pt", weights_only=True))
+
+    #Load test data
+    scaler = torch.load("data/processed/scaler.pt", weights_only=False)
+    import pandas as pd
+    import numpy as np
+    from sklearn.model_selection import train_test_split
+
+    df = pd.read_parquet("data/processed/features.parquet")
+    target_col = "readmitted_30d"
+
+    feature_cols_all = [c for c in df.columns if c != target_col]
+
+    if "primary_diagnosis_code" in df.columns:
+        df = pd.get_dummies(df, columns=["primary_diagnosis_code"], prefix=["diag"], drop_first=True)
+        feature_cols_all = [c for c in df.columns if c != target_col]
+
+    X = df[feature_cols_all].values.astype(np.float32)
+    y = df[target_col].values.astype(np.float32)
+
+    _, X_temp, _, y_temp = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+    _, X_test, _, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=42)
+
+    X_test = scaler.transform(X_test)
+
+    metrics = run_evaluation(model, X_test, y_test)
+
+    context["ti"].xcom_push(key="f1_score", value = metrics["f1_score"])
+    context["ti"].xcom_push(key="auc_roc", value = metrics["auc_roc"])
+    print(f"Model F1:{metrics["f1_score"]:.4f}, AUC: {metrics["auc_roc"]:.4f}")
 
 def check_model_performance(**context):
     """Branch: register model only if performance meets threshold"""
@@ -41,7 +77,18 @@ def check_model_performance(**context):
     
 def register_model(**context):
     """Register model in MLflow Registry"""
-    print("Model registered")
+    import mlflow
+    from src.model.registry import register_model_if_qualified
+
+    mlflow.set_experiment("readmission_prediction")
+    runs = mlflow.search_runs(order_by=["start_time DESC"], max_results=1)
+    run_id = runs.iloc[0].run_id
+
+    version = register_model_if_qualified(run_id, min_f1=0.30)
+    if version:
+        print(f"Model was registered as version {version}")
+    else:
+        print(f"Model did not meet threshold")
 
 def skip_registration(**context):
     """Log models that didn't meet threshold """
